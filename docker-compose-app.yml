@@ -1,0 +1,48 @@
+services:
+  # ── Endee Vector Database ──────────────────────────────
+  endee:
+    image: endeeio/endee-server:latest
+    container_name: endee-oss
+    ports:
+      - "8080:8080"
+    ulimits:
+      nofile: 100000
+    environment:
+      NDD_NUM_THREADS: 0
+      NDD_AUTH_TOKEN: ""
+    volumes:
+      - endee-data:/data
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "200m"
+        max-file: "5"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/v1/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  # ── MedSearch AI — FastAPI Backend ────────────────────
+  medsearch-api:
+    build:
+      context: ./medsearch-ai
+      dockerfile: Dockerfile
+    container_name: medsearch-api
+    ports:
+      - "8000:8000"
+    environment:
+      GEMINI_API_KEY: "${GEMINI_API_KEY}"
+      ENDEE_BASE_URL: "http://endee:8080"
+      ENDEE_AUTH_TOKEN: ""
+    depends_on:
+      endee:
+        condition: service_healthy
+    restart: unless-stopped
+    volumes:
+      - ./medsearch-ai:/app
+    working_dir: /app
+
+volumes:
+  endee-data:
